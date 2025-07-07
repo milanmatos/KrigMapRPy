@@ -28,7 +28,7 @@ myPackages <- c("knitr", "rmarkdown", "dplyr", "tidyverse",
                 "RColorBrewer", "colorspace", "viridis", "classInt",
                 "OpenStreetMap", "mapview", 'metR',
                 "rgl", "plotly", "svDialogs")
-                
+# install.packages("plotKML")                
 # define which packages are not already installed
 notInstalled <- myPackages[!(myPackages%in%installed.packages()[,"Package"])]
 

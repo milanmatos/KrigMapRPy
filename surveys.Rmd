@@ -1,9 +1,37 @@
 ---
 title: "Survey Map"
-output:
-  html_document: default
-  pdf_document: default
 ---
+1. Definition of the parameters, file name, …
+
+```{r definitions}
+rm(list = ls())
+
+source_name <- c(
+    #"inputs/2025-06-26-Seibersdorf_PGIS2.R"
+    #,
+    #"inputs/2025-06-26-Seibersdorf_PGIS3.R"
+    #,
+    #"inputs/2025-06-26-Seibersdorf_PGIS4.R"
+    #,
+    #"inputs/2025-06-26-Seibersdorf_PGIS5.R"
+    #"inputs/2025-06-26-Seibersdorf_SPIR.R"
+  
+    #"inputs/2025-06-27-Seibersdorf-MedusaNaI1000-dose.R"
+    #"inputs/2025-07-02-Seibersdorf-MedusaCsI350-cps_g.R"
+    "inputs/2025-07-02-Seibersdorf-MedusaCsI350-dose.R"
+    #"inputs/2025-07-02-Seibersdorf-MedusaCsI350-cCs_g.R"
+    #"inputs/2025-07-02-Seibersdorf-BUTDeltaPlastic-dose.R"
+    )
+
+# Global variables
+
+# If you want to suppress, make it FALSE
+USE_OpenStreetMap = TRUE
+# OPENS WINDOWS if TRUE
+OPEN_WINDOWS = FALSE
+
+crs <- 4326
+```
 
 
 ```{r setup, include=FALSE}
@@ -18,31 +46,11 @@ library(tidyverse)
 library(mapview)
 library(classInt)
 library(metR)
-library(OpenStreetMap) 
+if (USE_OpenStreetMap){ library(OpenStreetMap) }
 library(svDialogs)
-```
-
-
-
-1. Definition of the parameters, units, detector, file name, …
-
-```{r definitions}
-rm(list = ls())
-# Global variables
-
-# OPENS WINDOWS if TRUE
-OPEN_WINDOWS = FALSE
-
-crs <- 4326
-
-source_name <- c(
-    "inputs/2023-10-20-Seibersdorf-B_PGIS-89BE_2023_10_10_14_03_37-dose.R"
-    #"inputs/2023-11-21-Granite-mine-Medusa-processed-U.R"
-    #,
-    #"inputs/2023-11-21-Granite-mine-PGIS-09_55_36-U.R"
-    #"inputs/2024-05-15-Seibersdorf-Arktis-cps.R"
-    #"inputs/2024-10-16-Trieste-Gamon2.R"
-    )
+library(raster)
+library(terra)
+library(viridisLite)
 ```
 
 2.  Read the file
@@ -53,8 +61,8 @@ if(endsWith(input$filename, ".xlsx")) {data <- read_excel(paste0("data/",input$f
 if(endsWith(input$filename, ".csv")) {data <- read.csv(paste0("data/",input$filename))}
  
   data <- data %>%   
-    rename(lon = input$longitude, lat = input$latitude, value = input$column) %>% 
-    select("lon","lat","value")
+    dplyr::rename(lon = input$longitude, lat = input$latitude, value = input$column) %>% 
+    dplyr::select("lon","lat","value")
 
 data$value <- data$value * input$constant
 data$dataset <- input$detector
@@ -74,8 +82,8 @@ if (length(source_name) > 1){
   if(endsWith(input$filename, ".csv")) {data_temp <- read.csv(paste0("data/",input$filename))}
   
   data_temp <- data_temp %>%   
-   rename(lon = input$longitude, lat = input$latitude, value = input$column) %>% 
-   select("lon","lat","value")
+   dplyr::rename(lon = input$longitude, lat = input$latitude, value = input$column) %>% 
+   dplyr::select("lon","lat","value")
   data_temp$value <- data_temp$value * input$constant
   data_temp$dataset <- input$detector
   data <- rbind(data,data_temp)  # repeated with each dataset
@@ -182,10 +190,10 @@ ggplot(data_sub, mapping = aes(x = value)) +
   geom_histogram(fill = "steelblue")
 
 # Bounding boxes
-plot(bbox_sf)
-plot(bbox_utm)
-plot(site_perimeter_utm)
-plot(grd_utm)
+#plot(bbox_sf)
+#plot(bbox_utm)
+#plot(site_perimeter_utm)
+#plot(grd_utm)
 
 #   - "st_geometry(data_sf)" specifies we only want to map the geometry. 
 plot(data)
@@ -223,22 +231,25 @@ mapview(data_utm, zcol = "value", map.types = c("Esri.WorldImagery", "CartoDB.Po
 6.  Print maps of the walks
 
 ```{r printSurvey}
-my_osmmap <- openmap(c(bbox_sf$ymax+0.2*(bbox_sf$ymax-bbox_sf$ymin),
+if (USE_OpenStreetMap){
+ my_osmmap <- openmap(c(bbox_sf$ymax+0.2*(bbox_sf$ymax-bbox_sf$ymin),
                     bbox_sf$xmin-0.2*(bbox_sf$xmax-bbox_sf$xmin)), 
                     c(bbox_sf$ymin-0.2*(bbox_sf$ymax-bbox_sf$ymin),
                     bbox_sf$xmax+0.2*(bbox_sf$xmax-bbox_sf$xmin)), 
-                              zoom=18, type="bing", mergeTiles = TRUE)
+                              zoom=18, type="osm", mergeTiles = TRUE)
 # Adjust the zoom level if needed
 
 # Re-project it to WGS84 Coordinate Reference System
-my_osmmap <- openproj(my_osmmap)
+ my_osmmap <- openproj(my_osmmap)
 
-autoplot.OpenStreetMap(my_osmmap) + geom_point(aes(x = lon, y = lat, color = value),  alpha = 0.5, size = 2, data = data_sub)  +
+ autoplot.OpenStreetMap(my_osmmap) + geom_point(aes(x = lon, y = lat, 
+        color = value),  alpha = 0.5, size = 2, data = data_sub)  +
   scale_color_viridis_c(name=quantity, option = "viridis", alpha=0.4)  +
   labs(title = site,
        subtitle = paste(detectorname,"detector"),
        x="Longitude", y="Latitude") +
-  theme(legend.position="right",axis.text.x=element_text(angle = -45, hjust = 0))
+  theme(legend.position="right",
+        axis.text.x=element_text(angle = -45, hjust = 0))
 
  ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-survey.jpg"), dpi=600)
  if (OPEN_WINDOWS){
@@ -255,6 +266,7 @@ autoplot.OpenStreetMap(my_osmmap) + geom_point(aes(x = lon, y = lat, color = val
 
  #ggsave("printouts/above-threshold.jpg", dpi=600)
  #ggsave("printouts/above-threshold.pdf", dpi=600)
+}
 ```
 
 7.  Interpolation
@@ -268,11 +280,6 @@ value_vgm <- variogram(value ~ 1, data_utm, cloud = FALSE)
 nugget <- value_vgm$gamma[1]                        # first variogram value
 psill <- max(value_vgm$gamma) - value_vgm$gamma[1]  # Partial sill from thge maximum value
 range <- value_vgm$dist[which.max(value_vgm$gamma)] # position of the maximum
-
-# Eyeball the variogram and estimate the initial parameters
-#nugget <- 2
-#psill <- 25 # Partial sill
-#range <- 10
 
 # To see models available, execute "vgm()" in RStudio console: Nug, Exp, ...
 # They are "canonical" class of functions to be fitted. 
@@ -377,43 +384,51 @@ ggplot(data = as.data.frame(value_idw),
        x="X", y="Y") +
   theme(legend.position="right")
 
-mapview(value_krig, alpha.regions = 0.7, legend = TRUE, map.types = "Esri.WorldImagery", col = hcl.colors(11, "Spectral", rev = TRUE))
-mapview(value_idw, alpha.regions = 0.7, legend = TRUE, map.types = "Esri.WorldImagery", col = hcl.colors(11, "Spectral", rev = TRUE))
+
+
+mapview(value_idw, alpha.regions = 0.5, legend = TRUE, map.types = "Esri.WorldImagery", col = hcl.colors(11, "Spectral", rev = TRUE))
+
+clean_name <- paste(gsub("/", " per ", input$quantity), "kriging")
+mapview(value_krig, alpha.regions = 0.5, legend = TRUE, map.types = "Esri.WorldImagery", col.regions = hcl.colors(11, "Viridis", rev = FALSE), layer.name = clean_name)
 ```
 
 9.  Print the maps
 
 ```{r printMaps}
-# re-project and generate a regular grid based on the bounding box
-value_krig %>% st_transform(crs = crs) %>% st_bbox() %>% 
+if (USE_OpenStreetMap){
+ # re-project and generate a regular grid based on the bounding box
+ value_krig %>% st_transform(crs = crs) %>% st_bbox() %>% 
   st_as_stars() -> new_grd
 
-# Warp it
-# For further ref: https://r-spatial.github.io/stars/articles/stars5.html#reprojecting-a-raster
-value_krig %>% st_warp(new_grd) -> value_krig_pred
-value_idw["var1.pred"]  %>% st_warp(new_grd) -> value_idw_pred
+ # Warp it
+ # For further ref: https://r-spatial.github.io/stars/articles/stars5.html#reprojecting-a-raster
+ value_krig %>% st_warp(new_grd) -> value_krig_pred
+ value_idw["var1.pred"]  %>% st_warp(new_grd) -> value_idw_pred
 
-# Let's convert it to a dataframe now
-value_krig_pred <- as.data.frame(value_krig_pred) %>% drop_na()
-value_idw_pred <- as.data.frame(value_idw_pred) %>% drop_na()
+ # Let's convert it to a dataframe now
+ value_krig_pred <- as.data.frame(value_krig_pred) %>% drop_na()
+ value_idw_pred <- as.data.frame(value_idw_pred) %>% drop_na()
 
-autoplot.OpenStreetMap(my_osmmap) +
+ autoplot.OpenStreetMap(my_osmmap) +
   geom_raster(data = value_idw_pred, aes(x = x, y = y, fill = var1.pred)) +
   scale_fill_viridis_c(name=input$quantity, option = "viridis", alpha=0.4) +
-  geom_contour(data = value_idw_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth,
+  geom_contour(data = value_idw_pred, aes(x = x, y = y, z=var1.pred), 
+               binwidth = ISObinwidth,
                colour ="white", linewidth = 0.1)  +
-  geom_text_contour(data = value_idw_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth, colour = "white", size=2) + 
+  geom_text_contour(data = value_idw_pred, aes(x = x, y = y, z=var1.pred),
+      binwidth = ISObinwidth, colour = "white", size=2) + 
   coord_sf(expand = F) +
   labs(title = site,
        subtitle = paste(detectorname,"detector idw"),
        x="Longitude", y="Latitude") +
   theme(legend.position="right",axis.text.x=element_text(angle = -45, hjust = 0))
 
- ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-idw.jpg"), dpi=600)
+ #print the idw map
+ #ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-idw.jpg"), dpi=600)
  #ggsave(paste0("printouts/",site,"-",detector,"-",unitName,"-idw.pdf"), dpi=600)
 
 
-autoplot.OpenStreetMap(my_osmmap) +
+ autoplot.OpenStreetMap(my_osmmap) +
   geom_raster(data = value_krig_pred, aes(x = x, y = y, fill = var1.pred)) +
   scale_fill_viridis_c(name=input$quantity, option = "viridis", alpha=0.4) +
   geom_contour(data = value_krig_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth,
@@ -426,23 +441,78 @@ autoplot.OpenStreetMap(my_osmmap) +
   theme(legend.position="right",axis.text.x=element_text(angle = -45, hjust = 0))
 
 
-# Type ?ggsave in the "Console" to see all options
+ # Type ?ggsave in the "Console" to see all options
  ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-krig.jpg"), dpi=600)
  if (OPEN_WINDOWS){
   viewer(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-krig.jpg"), height = 10)
  }
  #ggsave(paste0("printouts/",site,"-",detector,"-",unitName,"-krig.pdf"), dpi=600)
  
-autoplot.OpenStreetMap(my_osmmap) +
+ autoplot.OpenStreetMap(my_osmmap) +
   geom_raster(data = value_krig_pred, aes(x = x, y = y, fill = cov)) +
   scale_fill_viridis_c(name="uncertainty [%]", option = "viridis", alpha=0.4) +
   geom_contour(data = value_krig_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth,
                colour ="white", linewidth = 0.1)  +
-  geom_text_contour(data = value_krig_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth, colour = "white", size=2) + 
+  geom_text_contour(data = value_krig_pred, 
+      aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth, colour = "white", size=2) + 
   coord_sf(expand = F) +
   labs(title = site,
        subtitle = paste(detectorname,"detector krig"),
        x="Longitude", y="Latitude") +
   theme(legend.position="right",axis.text.x=element_text(angle = -45, hjust = 0)) 
  ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-krig_unc.jpg"), dpi=600)
+}
+```
+10. Print the kriging results into csv file and raster for QGIS
+```{r data}
+ 
+ #export the interpolated data into an csv file - uncomment if needed
+ #write.csv(value_krig_pred, file = paste0("data/",input$site,"-",detectorname,"-",input$unitName,"-krig.csv"))
+ 
+ value_krig_sf <- st_as_sf(value_krig, coords = c("lon", "lat"), crs = crs)
+ 
+ # Ensure sf object has a defined CRS
+ crs_val <- st_crs(value_krig_sf)
+ # Convert sf to SpatVector
+ value_vect <- vect(value_krig_sf)
+
+ # Define raster template
+r_template <- rast(ext(value_vect), resolution = 0.05, crs = crs_val$wkt)
+
+# Rasterize
+value_raster <- rasterize(value_vect, r_template, field = "var1.pred")
+names(value_raster) <- input$quantity  #  variable name
+
+# Write raster without normalization
+writeRaster(value_raster,
+            paste0("printouts/", input$site, "-", detectorname, "-", input$unitName, "-krig.tif"),
+            overwrite = TRUE)
+
+
+# Normalize raster values to [0, 1]
+vals <- values(value_raster, mat = FALSE)
+vals_scaled <- (vals - min(vals, na.rm = TRUE)) / (max(vals, na.rm = TRUE) - min(vals, na.rm = TRUE))
+
+# Map scaled values to viridis colors
+viridis_palette <- viridis(256)
+index <- as.integer(vals_scaled * 255) + 1
+index[is.na(index)] <- 1  # Replace NA to avoid errors
+rgb <- col2rgb(viridis_palette[index])
+
+# Create new RGB rasters
+r <- setValues(rast(value_raster), rgb["red", ])
+g <- setValues(rast(value_raster), rgb["green", ])
+b <- setValues(rast(value_raster), rgb["blue", ])
+
+# Create alpha raster (127 = 50% opacity, 0 = fully transparent)
+alpha_vals <- ifelse(is.na(vals), 0, 255)
+alpha <- setValues(rast(value_raster), alpha_vals)
+
+#  Combine all bands
+rgba_raster <- c(r, g, b, alpha)
+names(rgba_raster) <- c("red", "green", "blue", "alpha")
+
+#Write RGBA raster
+writeRaster(rgba_raster, paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-krig_rgb.tif"),
+            datatype = "INT1U", overwrite = TRUE, gdal = c("ALPHA=YES"))
 ```
