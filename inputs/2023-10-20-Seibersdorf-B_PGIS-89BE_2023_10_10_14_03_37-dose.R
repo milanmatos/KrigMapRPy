@@ -1,13 +1,13 @@
 # \\\\\\\\\\\\\\\\\\\\\  INPUT PARAMETERS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 input <- data.frame(
-  filename <- "B_PGIS-89AA_2025_06_26_11_48_45_PEI.csv",  # filename
+  filename <- "B_PGIS-89BE_2023_10_10_14_03_37.xlsx",  # filename
   # columns to be read:
-  longitude <- "Lon_deg",
-  latitude <- "Lat_deg", 
-  column <- "DosPGIS_nGypH",
+  longitude <- "lon",
+  latitude <- "lat", 
+  column <- "dose",
   
-  site <- "2025.06.26",   #this appears on the figures and printout file names
-  detector <- "PGIS4", # for the name of the printout files
+  site <- "2023.10.10",   #this appears on the figures and printout file names
+  detector <- "PGIS", # for the name of the printout files
   quantity <- "Dose rate (uGy/h)", #this appears on the figures
   unitName <- "dose", # for the name of the printout files
   constant <- 1,      # the constant the value needs to be multiplied by
