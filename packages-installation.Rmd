@@ -1,0 +1,42 @@
+---
+title: "PACKAGES INSTALLATION"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: paper
+    highlight: pygments
+    css: styles.css
+---
+
+* Execute that code snippet to install all required packages:
+
+```{r}
+# Setting time zone
+Sys.setenv(TZ='GMT')
+
+# First install (if not already) and load the "devtools" package
+#   - required to install R packages directly from GitHub
+if (!require("devtools")) install.packages("devtools")
+library(devtools)
+
+# Specify all the packages used in this project
+#  - gstat (but need to install gfortran)
+#  - OpenStreetMap cannot be loaded as not JVM
+myPackages <- c("knitr", "rmarkdown", "dplyr", "tidyverse",
+                "sf", "sp", "gstat", "stars", 
+                "RColorBrewer", "colorspace", "viridis", "classInt",
+                "OpenStreetMap", "mapview", 'metR',
+                "rgl", "plotly", "svDialogs")
+# install.packages("plotKML")                
+# define which packages are not already installed
+notInstalled <- myPackages[!(myPackages%in%installed.packages()[,"Package"])]
+
+# install the missing packages
+if(length(notInstalled)>0) install.packages(notInstalled)
+
+# Finally install (if not already) the one installed from GitHub 
+if (!require("ggmap")) devtools::install_github("dkahle/ggmap")
+```
+
+
