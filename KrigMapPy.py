@@ -41,8 +41,8 @@ input_par = {
     "utm": 32633,
     "resolution": 1,
     "subsetting": 3,
-    "trimmBeginningUpTo": 0, #skip the first N rows and keep the rest (Nth is also trimmed)
-    "trimmEndAfter": 1000000, #skip everything after the row N (Nth is kept)
+    "trimmBeginningUpTo": 0,
+    "trimmEndAfter": 1000000,
     "variogramMax" : 40
 }
 description_par = {
