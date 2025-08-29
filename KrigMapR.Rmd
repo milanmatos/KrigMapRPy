@@ -1,0 +1,170 @@
+---
+title: "Survey Map"
+---
+1. Definition of the parameters, file name, …
+```{r definitions}
+rm(list = ls())
+
+source_name <- c(
+    "2025-06-26-Seibersdorf_PGIS2.input.xlsx"
+    ,
+    "2025-06-26-Seibersdorf_PGIS3.input.xlsx"
+    )
+
+source("chunks/parameters.R")
+map_type <- "osm" # osm /  bing (not always working)
+```
+Libraries
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+source("chunks/libraries.R")
+```
+
+2.  Read the file(s)
+```{r readFile}
+source("chunks/readfiles.R")
+```
+3.  Analysis
+```{r first plots}
+#print the beginning and end of the data
+head(data)
+tail(data)
+summary(data, digits=6)
+data %>%  count(dataset)
+#
+#plot
+ggplot(data, mapping = aes(x = value)) +
+  geom_histogram(fill = "steelblue") +
+  facet_grid(dataset ~  .) 
+
+#if you want to reduce data use data[(40:200),]
+
+data_new <- data %>%  
+  group_by(dataset) %>%
+  mutate(group = ntile(row_number(), 5)) %>%  
+  ungroup()
+
+ggplot(data_new, mapping = aes(x = lon, y = lat)) +
+  geom_point(aes(color = value), alpha = .8, size = 1) +
+  scale_color_viridis(direction = 1) +
+  coord_quickmap() +
+  facet_grid(dataset ~ group)
+ggplot(data_new, mapping = aes(x = lon, y = lat)) +
+  geom_point(aes(color = value), alpha = .8, size = 1) +
+  scale_color_viridis(direction = 1) +
+  coord_quickmap() +
+  facet_grid(dataset ~  .)
+```
+
+4.  Process sorted data
+
+```{r sort}
+source("chunks/process.R")
+```
+
+5.  Show and draw data
+```{r showData}
+mapview(data_utm, zcol = "value", map.types = c("Esri.WorldImagery", "CartoDB.Positron", "CartoDB.DarkMatter", "OpenStreetMap", "OpenTopoMap"), legend = TRUE)
+```
+
+6.  Print maps of the walks
+```{r printSurvey}
+ my_osmmap <- openmap(c(bbox_sf$ymax+0.2*(bbox_sf$ymax-bbox_sf$ymin),
+                    bbox_sf$xmin-0.2*(bbox_sf$xmax-bbox_sf$xmin)), 
+                    c(bbox_sf$ymin-0.2*(bbox_sf$ymax-bbox_sf$ymin),
+                    bbox_sf$xmax+0.2*(bbox_sf$xmax-bbox_sf$xmin)), 
+                              zoom=18, type=map_type, mergeTiles = TRUE)
+# Adjust the zoom level if needed
+
+# Re-project it to WGS84 Coordinate Reference System
+ my_osmmap <- openproj(my_osmmap)
+
+ autoplot.OpenStreetMap(my_osmmap) + geom_point(aes(x = lon, y = lat, 
+        color = value),  alpha = 0.5, size = 2, data = data_sub)  +
+  scale_color_viridis_c(name=quantity, option = "viridis", alpha=0.4)  +
+  labs(title = input$site,
+       subtitle = paste(detectorname,"detector"),
+       x="Longitude", y="Latitude") +
+  theme(legend.position="right",
+        axis.text.x=element_text(angle = -45, hjust = 0))
+
+ ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-survey.jpg"), dpi=600)
+```
+
+7.  Kriging Interpolation
+```{r krige}
+value_vgm <- variogram(value ~ 1, data_utm, cloud = FALSE)
+              #,boundaries = c(seq(2,10,1), seq(11, 50, 3))) #, seq(41, 400, 5)))
+nugget <- value_vgm$gamma[1]                        # first variogram value
+psill <- max(value_vgm$gamma) - value_vgm$gamma[1]  # Partial sill from maximum
+range <- value_vgm$dist[which.max(value_vgm$gamma)] # position of the maximum
+v_model <- fit.variogram(value_vgm, model = vgm(model = "Sph",
+    nugget = nugget, psill = psill, range = range, fit.kappa = TRUE ))
+value_krig <- krige(value ~ 1, data_utm[, "value"], newdata = grd_utm, model = v_model, nmax = 100) # We pass in to the kriging
+#uncertainty of kriging in %
+value_krig$cov <- 100 * sqrt( value_krig$var1.var) / value_krig$var1.pred
+
+print(v_model)
+plot(value_vgm, model = v_model)
+jpeg(file=paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-variogram.jpg"))
+  plot(value_vgm, model = v_model)
+dev.off()
+```
+
+8.  Show maps with the interpolated values
+```{r showInterpolations, warning = FALSE, message = FALSE}
+clean_name <- paste(gsub("/", " per ", input$quantity), "kriging")
+m = mapview(value_krig, alpha.regions = 0.5, legend = TRUE, map.types = "Esri.WorldImagery", col.regions = hcl.colors(11, "Viridis", rev = FALSE), layer.name = clean_name)
+#htmlwidgets::saveWidget(m@map, "test.html", selfcontained = TRUE)
+```
+
+9.  Print the maps
+```{r printMaps}
+#if (USE_OpenStreetMap){
+ # re-project and generate a regular grid based on the bounding box
+ value_krig %>% st_transform(crs = crs) %>% st_bbox() %>% 
+  st_as_stars() -> new_grd
+
+ # Warp it
+ # For further ref: https://r-spatial.github.io/stars/articles/stars5.html#reprojecting-a-raster
+ value_krig %>% st_warp(new_grd) -> value_krig_pred
+
+ # Let's convert it to a dataframe now
+ value_krig_pred <- as.data.frame(value_krig_pred) %>% drop_na()
+
+ autoplot.OpenStreetMap(my_osmmap) +
+  geom_raster(data = value_krig_pred, aes(x = x, y = y, fill = var1.pred)) +
+  scale_fill_viridis_c(name=input$quantity, option = "viridis", alpha=0.4) +
+  geom_contour(data = value_krig_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth,
+               colour ="white", linewidth = 0.1)  +
+  geom_text_contour(data = value_krig_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth, colour = "white", size=2) + 
+  coord_sf(expand = F) +
+  labs(title = input$site,
+       subtitle = paste(detectorname,"detector krig"),
+       x="Longitude", y="Latitude") +
+  theme(legend.position="right",axis.text.x=element_text(angle = -45, hjust = 0))
+
+
+ # Type ?ggsave in the "Console" to see all options
+ ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-krig.jpg"), dpi=600)
+
+ #ggsave(paste0("printouts/",input$site,"-",detector,"-",unitName,"-krig.pdf"), dpi=600)
+ cat(input$site)
+ autoplot.OpenStreetMap(my_osmmap) +
+  geom_raster(data = value_krig_pred, aes(x = x, y = y, fill = cov)) +
+  scale_fill_viridis_c(name="uncertainty [%]", option = "viridis", alpha=0.4) +
+  geom_contour(data = value_krig_pred, aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth,
+               colour ="white", linewidth = 0.1)  +
+  geom_text_contour(data = value_krig_pred, 
+      aes(x = x, y = y, z=var1.pred), binwidth = ISObinwidth, colour = "white", size=2) + 
+  coord_sf(expand = F) +
+  labs(title = input$site,
+       subtitle = paste(detectorname,"detector krig"),
+       x="Longitude", y="Latitude") +
+  theme(legend.position="right",axis.text.x=element_text(angle = -45, hjust = 0)) 
+ ggsave(paste0("printouts/",input$site,"-",detectorname,"-",input$unitName,"-krig_unc.jpg"), dpi=600)
+#}
+```
+10. Print the kriging results into and a raster for QGIS and Google Earth
+```{r rasters}
+source("chunks/rasters.R") 
+```

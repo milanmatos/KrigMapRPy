@@ -1,0 +1,12 @@
+pandas
+geopandas
+matplotlib
+numpy
+plotly
+nbformat
+pykrige
+folium
+contextily
+seaborn
+openpyxl
+nicegui
