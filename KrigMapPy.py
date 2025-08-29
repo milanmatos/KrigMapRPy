@@ -17,6 +17,7 @@ import warnings
 import io
 from nicegui import ui, app
 import base64
+import sys
 UseNiceGUI = True
 
 if UseNiceGUI:
@@ -53,13 +54,13 @@ description_par = {
     "detector": "PGIS",
     "quantity": "Dose rate (uGy/h)",
     "unitName": "dose",
-    "constant": 1.0,
-    "utm": 32633,
-    "resolution": 1,
-    "subsetting": 3,
-    "trimmBeginningUpTo": 0, #skip the first N rows and keep the rest (Nth is also trimmed)
-    "trimmEndAfter": 1000000, #skip everything after the row N (Nth is kept)
-    "variogramMax" : 40
+    "constant": "the number that ",
+    "utm": "Universal Transverse Mercator, 32633 for Austria, 326 in northern and 327 is southern hemisphere, use http://https://www.geoplaner.com/",
+    "resolution": "resolution of the grid of the interpolated values in meters",
+    "subsetting": "",
+    "trimmBeginningUpTo": "skip the first N rows and keep the rest (Nth is also trimmed)",
+    "trimmEndAfter": "skip everything after the row N (Nth is kept)",
+    "variogramMax" : "maximum length in meters for the variogram"
 }
 
 if UseNiceGUI:
@@ -145,7 +146,7 @@ if UseNiceGUI:
 def universal_print(message: str):
     """Show message in NiceGUI if runniung, else print to console."""
     if UseNiceGUI:
-        with ui_container:
+        with home_container:
             label = ui.label("")
             label.style("white-space: pre-line; font-size: 16px;")
             label.set_text(message)
@@ -157,10 +158,12 @@ def universal_print(message: str):
 
 def main(source_name : str):
     if UseNiceGUI:
-        global ui_container
+        global home_container
         global maps_container
-        ui_container.clear()
+        global analysis_container
+        home_container.clear()
         maps_container.clear()
+        analysis_container.clear()
 
     if len(source_name) == 0:
         # List all .R files in ./input_par_par_pars
@@ -274,7 +277,7 @@ def main(source_name : str):
         g.figure.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode("ascii")
-        with ui_container:
+        with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
     else:
         plt.show()
@@ -338,7 +341,7 @@ def main(source_name : str):
         g.figure.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode("ascii")
-        with ui_container:
+        with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:100%;")
     else:
         plt.show()
@@ -368,7 +371,7 @@ def main(source_name : str):
         g.figure.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode("ascii")
-        with ui_container:
+        with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
     else:
         plt.show()
@@ -426,7 +429,7 @@ def main(source_name : str):
     lon_max_fig, lat_max_fig = transformer.transform(x_max_fig, y_max_fig)
     lon_grid, lat_grid = transformer.transform(xgrid, ygrid)  # both remain 2D arrays matching xgrid/ygrid
 
-    ###################################################################
+    # ###################################################################
 
     #custom_bins=np.arange(1, 10, 1)
 
@@ -459,7 +462,7 @@ def main(source_name : str):
         fig.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode("ascii")
-        with ui_container:
+        with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:50%;")
     else:
         plt.figure()
@@ -492,7 +495,7 @@ def main(source_name : str):
         fig.savefig(buf, format="png", bbox_inches="tight")
         buf.seek(0)
         img_b64 = base64.b64encode(buf.read()).decode("ascii")
-        with ui_container:
+        with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:50%;")
     else:
         plt.figure()
@@ -505,8 +508,8 @@ def main(source_name : str):
     OK = skg.OrdinaryKriging(
         variogram,  # variogram model calculated previously
         min_points=1,  # minimum number of points to include in kriging calculation
-        max_points=100,
-        # mode='exact'  # maximum number of points to include in kriging calculation
+        max_points=100, # maximum number of points to include in kriging calculation
+        # mode='exact'  
     )
 
     # Perform Kriging interpolation
@@ -520,7 +523,7 @@ def main(source_name : str):
     Z_pred = np.where(mask, Z_pred, np.nan)  # Apply mask to the interpolated data
     Z_sigma = np.where(mask, Z_sigma, np.nan)  # Apply the mask to the standard deviations
 
-    ###############################################################
+    ##############################################################
 
     fig0, axs0 = plt.subplots()  
 
@@ -693,34 +696,42 @@ def main(source_name : str):
 if UseNiceGUI:
     if __name__ in {"__main__", "__mp_main__"}:
         
-        ui.label('KrigMapPy').style('font-size: 32px; font-weight: bold;')
-
         # plain variable to store selection
         source_name = []
 
         def update_selection(e):
             global source_name
             source_name = [item['label'] for item in e.args]
+        def refresh_files():
+            global r_files
+            r_files = glob.glob("inputs/*.input.xlsx")
+            r_files = [os.path.basename(f) for f in r_files]
+            select_rf.options = r_files
+
         r_files = glob.glob("inputs/*.input.xlsx")
         r_files = [os.path.basename(f) for f in r_files]
         
         with ui.splitter(value=10).classes('w-full h-screen') as splitter:
             with splitter.before:
                 with ui.tabs().props('vertical').classes('w-full') as tabs:
-                    home = ui.tab('KrigMapPy', icon='home')
-                    maps = ui.tab('Maps', icon='map')
-                    input = ui.tab('Make input File', icon='movie')
+                    tab_home = ui.tab('Home', icon='home')
+                    tab_analysis = ui.tab('Analysis', icon='info')
+                    tab_maps = ui.tab('Maps', icon='map')
+                    tab_input = ui.tab('Make input File', icon='movie')
             with splitter.after:
-                with ui.tab_panels(tabs, value=home).props('vertical').classes('w-full h-full'):
-                    with ui.tab_panel(home):
-                        ui.select(r_files, multiple=True, label='Pick input files') \
+                with ui.tab_panels(tabs, value=tab_home).props('vertical').classes('w-full h-full'):
+                    with ui.tab_panel(tab_home):
+                        ui.button('Refresh files', on_click=refresh_files)
+                        select_rf = ui.select(r_files, multiple=True, label='Pick input files') \
                             .classes('w-80').props('use-chips') \
                         .   on('update:model-value', update_selection)
                         ui.button('Produce krigged maps', on_click=lambda: main(source_name))
-                        ui_container = ui.column().style('width: 90%; margin: auto;')
-                    with ui.tab_panel(maps):
+                        home_container = ui.column().style('width: 90%; margin: auto;')
+                    with ui.tab_panel(tab_analysis):
+                        analysis_container = ui.column().style('width: 90%; margin: auto;')
+                    with ui.tab_panel(tab_maps):
                         maps_container = ui.column().style('width: 90%; margin: auto;')
-                    with ui.tab_panel(input):
+                    with ui.tab_panel(tab_input):
                         ui.button('Make a new input file', on_click=lambda: make_new_input_file())
                         right_container = ui.column()
                         with right_container:
@@ -730,8 +741,6 @@ if UseNiceGUI:
         ui.run(reload = False)
 else:
     source_name = [
-        "2025-06-26-Seibersdorf-PGIS3_dose.input.xlsx"
-    #    ,
-    #    "2025-06-26-Seibersdorf_PGIS3.input.xlsx"
+        "2025-06-26-Seibersdorf_PGIS2_dose.input.xlsx"
     ]
     main(source_name)
