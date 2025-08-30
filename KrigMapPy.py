@@ -18,6 +18,8 @@ import io
 from nicegui import ui, app
 import base64
 import sys
+import rasterio
+from rasterio.transform import from_origin
 UseNiceGUI = True
 
 if UseNiceGUI:
@@ -25,7 +27,7 @@ if UseNiceGUI:
 
 file_fields = ["filename", "longitude", "latitude", "column"]
 string_fields = ["site", "detector", "quantity", "unitName"]
-num_fields = ["constant", "utm", "resolution","subsetting","trimmBeginningUpTo","trimmEndAfter", "variogramMax"]
+num_fields = ["constant", "utm", "resolution","subsetting","trimBeginningUpTo","trimEndAfter", "variogramMax"]
 crs = 4326
 #default values
 input_par = {
@@ -41,8 +43,8 @@ input_par = {
     "utm": 32633,
     "resolution": 1,
     "subsetting": 3,
-    "trimmBeginningUpTo": 0,
-    "trimmEndAfter": 1000000,
+    "trimBeginningUpTo": 0,
+    "trimEndAfter": 1000000,
     "variogramMax" : 40
 }
 description_par = {
@@ -58,37 +60,41 @@ description_par = {
     "utm": "Universal Transverse Mercator, 32633 for Austria, 326 in northern and 327 is southern hemisphere, use http://https://www.geoplaner.com/",
     "resolution": "resolution of the grid of the interpolated values in meters",
     "subsetting": "",
-    "trimmBeginningUpTo": "skip the first N rows and keep the rest (Nth is also trimmed)",
-    "trimmEndAfter": "skip everything after the row N (Nth is kept)",
+    "trimBeginningUpTo": "skip the first N rows and keep the rest (Nth is also trimmed)",
+    "trimEndAfter": "skip everything after the row N (Nth is kept)",
     "variogramMax" : "maximum length in meters for the variogram"
 }
 
 if UseNiceGUI:
     def choose_input_file():
-        print(f"Suggested file name: {input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.xlsx")
+        input_file_name = f"{input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.csv"
+        print(f"Suggested file name: {input_file_name}")
         global right_container
-        #saveinput_container.clear()
         with right_container:
             with ui.row().classes('justify-end w-full'):
-                ui.label(f"Suggested file name: {input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.xlsx")
+                ui.label(f"Saving to the input file: {input_file_name}")
 
-        def save_input_file(e, key):
-            input_file_name = e.value
-            print(input_file_name)
-        with right_container:
-            with ui.row().classes('justify-end w-full'):
-                ui.input(label="File name (saves on Enter)", value=f"{input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.xlsx", 
-                            on_change=lambda e: save_input_file(e))  
-        #input_parpd = pd.DataFrame(list(input_par.items()), columns=["Parameter", "Value"])
-        #input_parpd.to_excel(f"inputs/{input_par["filename"]}_{input_par["unitName"]}output.input.xlsx", index=False)  
+        #def save_input_file(e, key):
+        #    input_file_name = e.value
+        #    print(input_file_name)
+        #with right_container:
+            #with ui.row().classes('justify-end w-full'):
+            #    ui.input(label="File name", value=input_file_name, 
+            #                on_change=lambda e: save_input_file(e))  
+        input_parpd = pd.DataFrame(list(input_par.items()), columns=["Parameter", "Value"])
+        if input_file_name.endswith('.csv'): input_parpd.to_csv(f"inputs/{input_file_name}", index=False)
+        if input_file_name.endswith('.xlsx'): input_parpd.to_excel(f"inputs/{input_file_name}", index=False)
+#            with ui.row().classes('justify-end w-full'):
+#                ui.button('Save)', on_click=lambda: choose_input_file()) 
 
     def make_new_input_file2(datafile_name : str):
         global right_container
-
+        global input_par
+        input_par["filename"] = datafile_name
         if datafile_name.endswith('.csv'): data = pd.read_csv(f"data/{os.path.basename(datafile_name)}")
         if datafile_name.endswith('.xlsx'): data = pd.read_excel(f"data/{os.path.basename(datafile_name)}")
         cols = data.columns.tolist()
-        input_par["trimmEndAfter"] = len(data)
+        input_par["trimEndAfter"] = len(data)
         del data
         def lon_chosen(e):
             input_par["longitude"] = e.args['label']
@@ -122,7 +128,7 @@ if UseNiceGUI:
         
         with right_container:       
             with ui.row().classes('justify-end w-full'):
-                ui.button('Pick input file name (.input.xlsx or .input.csv)', on_click=lambda: choose_input_file())    
+                ui.button('Save the input', on_click=lambda: choose_input_file())    
 
 
 
@@ -156,8 +162,8 @@ def universal_printH(message: str):
             label = ui.label("")
             label.style("white-space: pre-line; font-size: 16px;")
             label.set_text(message)
-    else:
-        print(message)
+    #else:
+    print(message)
 
 
 
@@ -225,10 +231,13 @@ def main(source_name : str):
     detectorname = "" 
     
     for src in range(0, len(source_name)):
-        input_par["trimmBeginningUpTo"]= 0
-        input_par["trimmEndAfter"] = 1000000
+        input_par["trimBeginningUpTo"] = 0
+        input_par["trimEndAfter"] = 1000000
         if source_name[src].endswith('.xlsx'): 
             parameters = pd.read_excel(f"inputs/{source_name[src]}")
+            text = f"---READING: {source_name[src]}"
+        if source_name[src].endswith('.csv'): 
+            parameters = pd.read_csv(f"inputs/{source_name[src]}")
             text = f"---READING: {source_name[src]}"
         for field in file_fields:
             match = parameters.loc[parameters.iloc[:, 0] == field, parameters.columns[1]]
@@ -260,7 +269,7 @@ def main(source_name : str):
         data_temp["value"] = data_temp["value"]*input_par["constant"]
         data_temp["dataset"] = input_par["detector"]
         data = pd.concat([data, data_temp], ignore_index=True)
-        data_trimmed = pd.concat([data_trimmed, data_temp.iloc[input_par["trimmBeginningUpTo"]:input_par["trimmEndAfter"]]], ignore_index=True)
+        data_trimmed = pd.concat([data_trimmed, data_temp.iloc[input_par["trimBeginningUpTo"]:input_par["trimEndAfter"]]], ignore_index=True)
         detectorname = f"{detectorname}-{input_par["detector"]}" 
 
 
@@ -287,6 +296,7 @@ def main(source_name : str):
             ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
     else:
         plt.show()
+    plt.close()
 
     # Add an original row index to preserve order
     data = data.reset_index(drop=False).rename(columns={"index": "original_row"})
@@ -351,7 +361,7 @@ def main(source_name : str):
             ui.image(f"data:image/png;base64,{img_b64}").style("width:100%;")
     else:
         plt.show()
-
+    plt.close()
     #########################################
 
     data = data_trimmed
@@ -381,8 +391,10 @@ def main(source_name : str):
             ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
     else:
         plt.show()
-
-    ###########################################################################
+    plt.close()
+    ########################################################################
+    print("Transforming coordinates....")
+    ########################################################################
 
 
     data_utm = gpd.GeoDataFrame(data, geometry=gpd.points_from_xy(data["lon"], data["lat"]), crs="EPSG:" + str(crs))
@@ -435,7 +447,9 @@ def main(source_name : str):
     lon_max_fig, lat_max_fig = transformer.transform(x_max_fig, y_max_fig)
     lon_grid, lat_grid = transformer.transform(xgrid, ygrid)  # both remain 2D arrays matching xgrid/ygrid
 
-    # ###################################################################
+    ########################################################################
+    print("Fitting the Variogram...")
+    ########################################################################
 
     #custom_bins=np.arange(1, 10, 1)
 
@@ -509,6 +523,8 @@ def main(source_name : str):
         plt.show()
 
     ########################################################################
+    print("Fitted the Variogram, Kriging...")
+    ########################################################################
 
     # Set up Ordinary Kriging with predefined variogram model and control over the number of points used for interpolation
     OK = skg.OrdinaryKriging(
@@ -529,6 +545,8 @@ def main(source_name : str):
     Z_pred = np.where(mask, Z_pred, np.nan)  # Apply mask to the interpolated data
     Z_sigma = np.where(mask, Z_sigma, np.nan)  # Apply the mask to the standard deviations
 
+    ##############################################################
+    print("Printing the maps...")
     ##############################################################
 
     fig0, axs0 = plt.subplots()  
@@ -668,11 +686,8 @@ def main(source_name : str):
         plt.show()
 
     ########################################################################################
-
-
-    import rasterio
-    from rasterio.transform import from_origin
-
+    print("Maps printed, producing the raster...")
+    ########################################################################################
 
     # Flip vertically so north is up
     Z_export = np.flipud(Z_pred)
@@ -698,6 +713,8 @@ def main(source_name : str):
         #nodata=-9999
     ) as dst:
         dst.write(Z_export, 1)
+    
+    print("Raster file produced, finished")
 
 if UseNiceGUI:
     if __name__ in {"__main__", "__mp_main__"}:
@@ -710,11 +727,11 @@ if UseNiceGUI:
             source_name = [item['label'] for item in e.args]
         def refresh_files():
             global r_files
-            r_files = glob.glob("inputs/*.input.xlsx")
+            r_files = glob.glob("inputs/*.input.xlsx") + glob.glob("inputs/*.input.csv")
             r_files = [os.path.basename(f) for f in r_files]
             select_rf.options = r_files
 
-        r_files = glob.glob("inputs/*.input.xlsx")
+        r_files = glob.glob("inputs/*.input.xlsx") + glob.glob("inputs/*.input.csv")
         r_files = [os.path.basename(f) for f in r_files]
         
         with ui.splitter(value=10).classes('w-full h-screen') as splitter:
@@ -740,13 +757,12 @@ if UseNiceGUI:
                     with ui.tab_panel(tab_input):
                         ui.button('Make a new input file', on_click=lambda: make_new_input_file())
                         right_container = ui.column()
-                        with right_container:
-                            saveinput_container = ui.column().style('width: 90%; margin: auto;')
 
 
         ui.run(reload = False)
 else:
     source_name = [
-        "2025-06-26-Seibersdorf_PGIS2_dose.input.xlsx"
+        "2025-06-27-Seibersdorf_Medusa_dose.input.xlsx"
+    #    "2025-06-26-Seibersdorf_PGIS2_dose.input.xlsx"
     ]
     main(source_name)

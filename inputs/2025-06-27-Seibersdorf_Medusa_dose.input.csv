@@ -1,0 +1,16 @@
+Parameter,Value
+filename,2025.06.27SeibersdorfMedusaNaI1000.csv
+longitude,Lon
+latitude,Lat
+column,Dose
+site,2025-06-27-Seibersdorf
+detector,Medusa2
+quantity,Dose rate (uGy/h)
+unitName,dose
+constant,1
+utm,32633
+resolution,1
+subsetting,3
+trimBeginningUpTo,30
+trimEndAfter,920
+variogramMax,40
