@@ -488,6 +488,7 @@ def main(source_name : str):
         plt.figure()
         variogram.plot(show=True)
         plt.show()
+    plt.close()
 
     variogram = skg.Variogram(
         coordinates= utm_coords, 
@@ -521,6 +522,7 @@ def main(source_name : str):
         plt.figure()
         variogram.plot(show=True)
         plt.show()
+    plt.close()
 
     ########################################################################
     print("Fitted the Variogram, Kriging...")
@@ -593,7 +595,7 @@ def main(source_name : str):
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
     else:
         plt.show()
-
+    plt.close()
     ####################
 
     # plot to visualise the interpolated data
@@ -642,6 +644,7 @@ def main(source_name : str):
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
     else:
         plt.show()
+    plt.close()
 
     ################
 
@@ -684,7 +687,8 @@ def main(source_name : str):
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
     else:
         plt.show()
-
+    plt.close()
+    
     ########################################################################################
     print("Maps printed, producing the raster...")
     ########################################################################################
