@@ -65,15 +65,17 @@ description_par = {
 
 if UseNiceGUI:
     def choose_input_file():
-        saveinput_container.clear()
-        with saveinput_container:
+        print(f"Suggested file name: {input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.xlsx")
+        global right_container
+        #saveinput_container.clear()
+        with right_container:
             with ui.row().classes('justify-end w-full'):
                 ui.label(f"Suggested file name: {input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.xlsx")
 
         def save_input_file(e, key):
             input_file_name = e.value
             print(input_file_name)
-        with saveinput_container:
+        with right_container:
             with ui.row().classes('justify-end w-full'):
                 ui.input(label="File name (saves on Enter)", value=f"{input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.xlsx", 
                             on_change=lambda e: save_input_file(e))  
@@ -81,6 +83,8 @@ if UseNiceGUI:
         #input_parpd.to_excel(f"inputs/{input_par["filename"]}_{input_par["unitName"]}output.input.xlsx", index=False)  
 
     def make_new_input_file2(datafile_name : str):
+        global right_container
+
         if datafile_name.endswith('.csv'): data = pd.read_csv(f"data/{os.path.basename(datafile_name)}")
         if datafile_name.endswith('.xlsx'): data = pd.read_excel(f"data/{os.path.basename(datafile_name)}")
         cols = data.columns.tolist()
@@ -118,13 +122,14 @@ if UseNiceGUI:
         
         with right_container:       
             with ui.row().classes('justify-end w-full'):
-                ui.button('Save', on_click=lambda: choose_input_file())    
+                ui.button('Pick input file name (.input.xlsx or .input.csv)', on_click=lambda: choose_input_file())    
 
 
 
 
 
     def make_new_input_file():
+        global right_container
         right_container.clear()
                 # plain variable to store selection
 
@@ -143,8 +148,9 @@ if UseNiceGUI:
 
 
 
-def universal_print(message: str):
+def universal_printH(message: str):
     """Show message in NiceGUI if runniung, else print to console."""
+    global home_container
     if UseNiceGUI:
         with home_container:
             label = ui.label("")
@@ -240,7 +246,7 @@ def main(source_name : str):
                 # Convert to numeric, coerce errors to NaN if non-numeric
                 input_par[field] = pd.to_numeric(match.iloc[0], errors="coerce")
                 text += f"\n {field}: {input_par[field]}"
-        universal_print(text)
+        universal_printH(text)
 
         if input_par["filename"].endswith('.csv'): data_temp = pd.read_csv(f"data/{input_par["filename"]}")
         if input_par["filename"].endswith('.xlsx'): data_temp = pd.read_excel(f"data/{input_par["filename"]}")
