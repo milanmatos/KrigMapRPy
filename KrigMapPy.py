@@ -171,15 +171,24 @@ async def universal_printH(message: str):
     if UseNiceGUI:
         global home_container
         with home_container:
-            label = ui.label("")
-            label.style("white-space: pre-line; font-size: 16px;")
-            label.set_text(message)
+            ui.label(message).style("white-space: pre-line; font-size: 16px;")
+            # label = ui.label("")
+            # label.style("white-space: pre-line; font-size: 16px;")
+            # label.set_text(message)
         await asyncio.sleep(0) 
     
     print(message)
 
 
 #############################################################################
+#############################################################################
+#############################################################################
+#############################################################################
+####################### Main ################################################
+#############################################################################
+#############################################################################
+#############################################################################
+
 
 async def main(source_name: str):
     global input_par, description_par, variogram_models
@@ -809,6 +818,7 @@ if UseNiceGUI:
 else:
     source_name = [
         "2025-06-27-Seibersdorf-Medusa_dose.input.csv"
-    #    "2025-06-26-Seibersdorf_PGIS2_dose.input.xlsx"
+        #"2025-06-26-Seibersdorf-PGIS2-dose.input.xlsx",
+        #"2025-06-26-Seibersdorf-PGIS3-dose.input.xlsx"
     ]
-    main(source_name)
+    asyncio.run(main(source_name))
