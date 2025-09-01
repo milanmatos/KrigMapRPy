@@ -10,3 +10,7 @@ contextily
 seaborn
 openpyxl
 nicegui
+scipy
+scikit-gstat
+pyproj
+rasterio
