@@ -207,8 +207,6 @@ if UseNiceGUI:
 
 
 
-if UseNiceGUI:
-    home_container = None  # will be assigned later
 async def universal_printH(message: str):
     """Show message in NiceGUI if runniung, else print to console."""
     if UseNiceGUI:
