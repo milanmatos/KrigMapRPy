@@ -76,6 +76,49 @@ variogram_models = {
 }
 
 if UseNiceGUI:
+    buf_hist = io.BytesIO()
+    buf_parts = io.BytesIO()
+    buf_trim = io.BytesIO()
+    buf_var1 = io.BytesIO()
+    buf_var2 = io.BytesIO()
+    buf_survey = io.BytesIO()
+    buf_krig = io.BytesIO()
+    buf_krigunc = io.BytesIO()
+
+    async def redraw_all():
+        global buf_hist, buf_parts, buf_trim, buf_var1, buf_var2, buf_survey, buf_krig, buf_krigunc
+        global home_container, maps_container, analysis_container
+        maps_container.clear()
+        analysis_container.clear()
+
+        with analysis_container:
+            buf_hist.seek(0)
+            img_b64 = base64.b64encode(buf_hist.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
+            buf_parts.seek(0)
+            img_b64 = base64.b64encode(buf_parts.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:100%;")
+            buf_trim.seek(0)
+            img_b64 = base64.b64encode(buf_trim.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
+            buf_var1.seek(0)
+            img_b64 = base64.b64encode(buf_var1.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:50%;")
+            buf_var2.seek(0)
+            img_b64 = base64.b64encode(buf_var2.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:50%;")
+
+        with maps_container:
+            buf_survey.seek(0)
+            img_b64 = base64.b64encode(buf_survey.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
+            buf_krig.seek(0)
+            img_b64 = base64.b64encode(buf_krig.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
+            buf_krigunc.seek(0)
+            img_b64 = base64.b64encode(buf_krigunc.read()).decode("ascii")
+            ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
+
     def choose_input_file():
         input_file_name = f"{input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.csv"
         print(f"Suggested file name: {input_file_name}")
@@ -197,6 +240,7 @@ async def main(source_name: str):
 
     if UseNiceGUI:
         global home_container, maps_container, analysis_container
+        global buf_hist, buf_parts, buf_trim, buf_var1, buf_var2, buf_survey, buf_krig, buf_krigunc
         home_container.clear()
         maps_container.clear()
         analysis_container.clear()
@@ -324,10 +368,11 @@ async def main(source_name: str):
     g.set_axis_labels(input_par["quantity"], "Frequency")
     g.set_titles(row_template="{row_name}")   # show dataset name on each plot
     if UseNiceGUI:
-        buf = io.BytesIO()
-        g.figure.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_hist.seek(0)
+        buf_hist.truncate(0)
+        g.figure.savefig(buf_hist, format="png", bbox_inches="tight")
+        buf_hist.seek(0)
+        img_b64 = base64.b64encode(buf_hist.read()).decode("ascii")
         with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
     else:
@@ -389,10 +434,11 @@ async def main(source_name: str):
         ].iloc[0]
         ax.set_title(f"{dataset}, {label}")
     if UseNiceGUI:
-        buf = io.BytesIO()
-        g.figure.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_parts.seek(0)
+        buf_parts.truncate(0)
+        g.figure.savefig(buf_parts, format="png", bbox_inches="tight")
+        buf_parts.seek(0)
+        img_b64 = base64.b64encode(buf_parts.read()).decode("ascii")
         with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:100%;")
     else:
@@ -419,10 +465,11 @@ async def main(source_name: str):
     g.set_titles(row_template="{row_name}")   # dataset name as facet title
     
     if UseNiceGUI:
-        buf = io.BytesIO()
-        g.figure.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_trim.seek(0)
+        buf_trim.truncate(0)
+        g.figure.savefig(buf_trim, format="png", bbox_inches="tight")
+        buf_trim.seek(0)
+        img_b64 = base64.b64encode(buf_trim.read()).decode("ascii")
         with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:80%;")
     else:
@@ -516,10 +563,11 @@ async def main(source_name: str):
     print(variogram)
     if UseNiceGUI:
         fig = variogram.plot()   # this returns a matplotlib Figure
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_var1.seek(0)
+        buf_var1.truncate(0)
+        fig.savefig(buf_var1, format="png", bbox_inches="tight")
+        buf_var1.seek(0)
+        img_b64 = base64.b64encode(buf_var1.read()).decode("ascii")
         with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:50%;")
     else:
@@ -549,11 +597,12 @@ async def main(source_name: str):
     print(variogram)
 
     if UseNiceGUI:
+        buf_var2.seek(0)
+        buf_var2.truncate(0)
         fig = variogram.plot()   # this returns a matplotlib Figure
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        fig.savefig(buf_var2, format="png", bbox_inches="tight")
+        buf_var2.seek(0)
+        img_b64 = base64.b64encode(buf_var2.read()).decode("ascii")
         with analysis_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:50%;")
     else:
@@ -628,10 +677,11 @@ async def main(source_name: str):
     # plt.savefig("myplot.pdf", dpi=300, bbox_inches="tight")
 
     if UseNiceGUI:
-        buf = io.BytesIO()
-        fig0.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_survey.seek(0)
+        buf_survey.truncate(0)
+        fig0.savefig(buf_survey, format="png", bbox_inches="tight")
+        buf_survey.seek(0)
+        img_b64 = base64.b64encode(buf_survey.read()).decode("ascii")
         with maps_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
     else:
@@ -677,10 +727,11 @@ async def main(source_name: str):
     # plt.savefig("myplot.pdf", dpi=300, bbox_inches="tight")
 
     if UseNiceGUI:
-        buf = io.BytesIO()
-        fig1.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_krig.seek(0)
+        buf_krig.truncate(0)
+        fig1.savefig(buf_krig, format="png", bbox_inches="tight")
+        buf_krig.seek(0)
+        img_b64 = base64.b64encode(buf_krig.read()).decode("ascii")
         with maps_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
     else:
@@ -720,10 +771,11 @@ async def main(source_name: str):
     plt.savefig(f"printouts/{input_par["site"]}{detectorname}-{input_par["unitName"]}-krig_unc.jpg", dpi=300, bbox_inches="tight")
     
     if UseNiceGUI:
-        buf = io.BytesIO()
-        fig2.savefig(buf, format="png", bbox_inches="tight")
-        buf.seek(0)
-        img_b64 = base64.b64encode(buf.read()).decode("ascii")
+        buf_krigunc.seek(0)
+        buf_krigunc.truncate(0)
+        fig2.savefig(buf_krigunc, format="png", bbox_inches="tight")
+        buf_krigunc.seek(0)
+        img_b64 = base64.b64encode(buf_krigunc.read()).decode("ascii")
         with maps_container:
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
     else:
@@ -804,6 +856,7 @@ if UseNiceGUI:
                         .classes('w-80').props('use-chips') \
                         .on('update:model-value', update_selection)
                         ui.button('Produce krigged maps', on_click=lambda: main(source_name))
+                        ui.button('Redraw', on_click=lambda: redraw_all())
                         home_container = ui.column().style('width: 90%; margin: auto;')
                     with ui.tab_panel(tab_analysis):
                         analysis_container = ui.column().style('width: 90%; margin: auto;')
