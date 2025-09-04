@@ -119,6 +119,8 @@ if UseNiceGUI:
             img_b64 = base64.b64encode(buf_krigunc.read()).decode("ascii")
             ui.image(f"data:image/png;base64,{img_b64}").style("width:60%;")
 
+        await asyncio.sleep(0)
+
     def choose_input_file():
         input_file_name = f"{input_par["site"]}_{input_par["detector"]}_{input_par["unitName"]}.input.csv"
         print(f"Suggested file name: {input_file_name}")
@@ -539,7 +541,7 @@ async def main(source_name: str):
     # Create a Variogram object and fit it to the data using custom bin boundaries
     # https://scikit-gstat.readthedocs.io/en/latest/reference/variogram.html here are the documentation to tell you 
                                                                             #what are the variogram parameters
-    variogram = skg.Variogram(
+    variogram = await run.io_bound(lambda: skg.Variogram(
         coordinates= utm_coords, 
         values= values,
         estimator='matheron',
@@ -556,7 +558,7 @@ async def main(source_name: str):
         n_lags=40
         # ,  
         #maxlag=40 
-    )
+    ) )
 
     print(variogram)
     if UseNiceGUI:
@@ -574,7 +576,7 @@ async def main(source_name: str):
         plt.show()
     plt.close()
 
-    variogram = skg.Variogram(
+    variogram = await run.io_bound(lambda: skg.Variogram(
         coordinates= utm_coords, 
         values= values,
         estimator='matheron',
@@ -590,7 +592,7 @@ async def main(source_name: str):
         fit_nugget=1.0,
         n_lags=40,  
         maxlag=input_par["variogramMax"]
-    )
+    ) )
 
     print(variogram)
 
@@ -615,18 +617,21 @@ async def main(source_name: str):
     ########################################################################
 
     # Set up Ordinary Kriging with predefined variogram model and control over the number of points used for interpolation
-    OK = skg.OrdinaryKriging(
+    OK = await run.io_bound(lambda: skg.OrdinaryKriging(
         variogram,  # variogram model calculated previously
         min_points=1,  # minimum number of points to include in kriging calculation
         max_points=100, # maximum number of points to include in kriging calculation
         # mode='exact'  
-    )
+    ))
+    
 
     # Perform Kriging interpolation
     # OK.transform(xgrid.ravel(), ygrid.ravel())
     await run.io_bound(lambda: OK.transform(xgrid.ravel(), ygrid.ravel()) )
+    await asyncio.sleep(0)
     # ravel() flattens the grid into 1D arrays to feed them into the kriging function.
     # Reshape the standard deviations to match the original grid shape to put them back into a 2D raster
+
     Z_sigma = OK.sigma.reshape(xgrid.shape)
     Z_pred = OK.z.reshape(xgrid.shape)
     Z_sigma = (np.sqrt(Z_sigma) / Z_pred) * 100
@@ -809,6 +814,7 @@ async def main(source_name: str):
         #nodata=-9999
     ) as dst:
         dst.write(Z_export, 1)
+
     
     ########################################################################################
     await universal_printH("Finished.")
