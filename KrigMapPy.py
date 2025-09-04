@@ -559,7 +559,7 @@ async def main(source_name: str):
         # ,  
         #maxlag=40 
     ) )
-
+    await asyncio.sleep(0)
     print(variogram)
     if UseNiceGUI:
         fig = variogram.plot()   # this returns a matplotlib Figure
@@ -593,7 +593,7 @@ async def main(source_name: str):
         n_lags=40,  
         maxlag=input_par["variogramMax"]
     ) )
-
+    await asyncio.sleep(0)
     print(variogram)
 
     if UseNiceGUI:
