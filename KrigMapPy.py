@@ -871,7 +871,7 @@ if UseNiceGUI:
                         right_container = ui.column()
 
 
-        ui.run(reload = False)
+        ui.run(reload = False, reconnect_timeout=30)
 else:
     source_name = [
         "2025-06-27-Seibersdorf-Medusa_dose.input.csv"
